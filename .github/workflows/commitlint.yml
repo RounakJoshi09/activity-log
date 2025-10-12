@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   commitlint:
@@ -38,3 +40,35 @@ jobs:
       - name: Validate PR commits
         if: github.event_name == 'pull_request'
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Add helpful comment on PR failure
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ❌ Commit Message Check Failed
+
+Your commit messages don't follow the required gitmoji format. Please make sure your commits follow this pattern:
+
+\`🎨 feat: add new feature\`
+\`🐛 fix: resolve bug issue\`
+\`📚 docs: update documentation\`
+\`🔧 chore: update dependencies\`
+
+**Required Format:** \`[gitmoji] [type]: [description]\`
+
+📖 **Resources:**
+- [Gitmoji Guide](https://gitmoji.dev/) - Find the right emoji for your commit
+- [Conventional Commits](https://www.conventionalcommits.org/) - Learn about commit types
+
+🔧 **How to fix:**
+1. For the last commit: \`git commit --amend -m "🎨 feat: your description"\`
+2. For multiple commits: \`git rebase -i HEAD~n\` (where n is number of commits)
+3. Then force push: \`git push --force-with-lease\`
+
+The CI will automatically re-run once you update your commit messages! 🚀`
+            })
